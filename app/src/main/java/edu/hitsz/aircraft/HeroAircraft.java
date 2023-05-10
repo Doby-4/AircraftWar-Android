@@ -1,12 +1,14 @@
 package edu.hitsz.aircraft;
 
-import java.util.LinkedList;
 import java.util.List;
 
-import edu.hitsz.ImageManager;
+import edu.hitsz.application.Game;
+import edu.hitsz.application.ImageManager;
 import edu.hitsz.activity.MainActivity;
-import edu.hitsz.bullet.AbstractBullet;
-import edu.hitsz.bullet.HeroBullet;
+import edu.hitsz.bullet.BaseBullet;
+import edu.hitsz.soundEffect.MusicThread;
+import edu.hitsz.strategy.HeroStraightShoot;
+import edu.hitsz.strategy.ShootStrategy;
 
 /**
  * 英雄飞机，游戏玩家操控，遵循单例模式（singleton)
@@ -14,6 +16,31 @@ import edu.hitsz.bullet.HeroBullet;
  * @author hitsz
  */
 public class HeroAircraft extends AbstractAircraft {
+
+    /**攻击方式 */
+    /**
+     * is firesupply on?
+     */
+    public boolean isFireSupply = false;
+    /**
+     * 子弹一次发射数量
+     */
+    private final int shootNum = 1;
+
+    /**
+     * 子弹伤害
+     */
+    private int power = 30;
+
+    /**
+     * 子弹射击方向 (向上发射：1，向下发射：-1)
+     */
+    private int direction = -1;
+
+    /**
+     * shoot strategy
+     */
+    private ShootStrategy shootStrategy;
 
 /*
         volatile 修饰，
@@ -25,18 +52,14 @@ public class HeroAircraft extends AbstractAircraft {
         volatile 可以避免重排序。
     */
     /** 英雄机对象单例 */
-    private volatile static HeroAircraft heroAircraft;
+    private static HeroAircraft instance = null;
 
     /**
      * 单例模式：私有化构造方法
      */
-    private HeroAircraft() {
-        super(MainActivity.screenWidth / 2, MainActivity.screenHeight - ImageManager.HERO_IMAGE.getHeight(),
-                0, -5, 1000);
-        this.shootNum = 1;
-        this.power = 30;
-        this.direction = -1;
-        this.rate = 1.5;
+    private HeroAircraft(int locationX, int locationY, int speedX, int speedY, int hp, ShootStrategy shootStrategy) {
+        super(locationX, locationY, speedX, speedY, hp);
+        this.shootStrategy = shootStrategy;
     }
 
 
@@ -45,15 +68,15 @@ public class HeroAircraft extends AbstractAircraft {
      * 【单例模式：双重校验锁方法】
      * @return 英雄机单例
      */
-    public static HeroAircraft getHeroAircraft(){
-        if (heroAircraft == null) {
-            synchronized (HeroAircraft.class) {
-                if (heroAircraft == null) {
-                    heroAircraft = new HeroAircraft();
-                }
-            }
+    public static synchronized HeroAircraft getInstance(){
+        if (instance == null) {
+            instance = new HeroAircraft(MainActivity.WINDOW_WIDTH / 2,
+                    MainActivity.WINDOW_HEIGHT - ImageManager.HERO_IMAGE.getHeight(),
+                    0, 0, 5000,
+                    new HeroStraightShoot()
+            );
         }
-        return heroAircraft;
+        return instance;
     }
 
     @Override
@@ -62,19 +85,19 @@ public class HeroAircraft extends AbstractAircraft {
     }
 
     @Override
-    public  List<AbstractBullet> shoot() {
-        List<AbstractBullet> res = new LinkedList<>();
-        int x = this.getLocationX();
-        int y = this.getLocationY() + direction*2;
-        int speedX = 0;
-        int speedY = this.getSpeedY() + direction*5;
-        AbstractBullet abstractBullet;
-        for(int i=0; i<shootNum; i++){
-            // 子弹发射位置相对飞机位置向前偏移
-            // 多个子弹横向分散
-            abstractBullet = new HeroBullet(x + (i*2 - shootNum + 1)*10, y, speedX, speedY, power);
-            res.add(abstractBullet);
+    /**
+     * 通过射击产生子弹
+     * @return 射击出的子弹List
+     */
+
+    public List<BaseBullet> shoot() {
+        if (Game.soundEffectEnable) {
+            //new MusicThread("src/videos/bullet.wav", false).start();
         }
-        return res;
+        return shootStrategy.shoot(this.getLocationX(), this.getLocationY(), this.getSpeedY(), this.power, this.shootNum, this.direction);
+    }
+
+    public void setShootStrategy(ShootStrategy shootStrategy) {
+        this.shootStrategy = shootStrategy;
     }
 }
